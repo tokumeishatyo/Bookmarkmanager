@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome ブックマーク整理ツール</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Chrome ブックマーク整理ツール</h1>
+            <div class="controls">
+                <input type="file" id="file-input" accept=".json" style="display: none;">
+                <button id="open-file-button" class="btn btn-primary">ブックマークファイルを開く</button>
+                <button id="check-links-button" class="btn btn-secondary" disabled>確認する</button>
+                <button id="save-button" class="btn btn-success" disabled>保存する</button>
+            </div>
+        </header>
+
+        <main>
+            <div id="status-area" class="status-area"></div>
+            <div id="bookmark-tree-container" class="bookmark-tree"></div>
+        </main>
+    </div>
+
+    <script type="module" src="dist/main.js"></script>
+</body>
+</html>
