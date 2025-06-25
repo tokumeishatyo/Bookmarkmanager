@@ -23,6 +23,9 @@ header {
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     margin-bottom: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 h1 {
@@ -31,10 +34,47 @@ h1 {
     margin-bottom: 20px;
 }
 
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
 .controls {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+.stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 200px;
+}
+
+.stats-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 12px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.stats-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.stats-value {
+    font-weight: bold;
+    color: #212529;
+    min-width: 30px;
+    text-align: right;
 }
 
 .btn {
@@ -232,11 +272,28 @@ h1 {
         font-size: 20px;
     }
     
+    .header-content {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
     .controls {
         flex-direction: column;
     }
     
     .btn {
         width: 100%;
+    }
+    
+    .stats {
+        min-width: auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+    
+    .stats-item {
+        flex: 1;
+        min-width: 80px;
     }
 }

@@ -30,6 +30,13 @@ class BookmarkManager {
     private selectedBookmarks: Set<string> = new Set();
     private errorBookmarks: Set<string> = new Set();
     private isRecheckMode: boolean = false;
+    
+    // 統計情報用の要素
+    private totalCountElement: HTMLElement;
+    private okCountElement: HTMLElement;
+    private notFoundCountElement: HTMLElement;
+    private errorCountElement: HTMLElement;
+    private selectedCountElement: HTMLElement;
 
     constructor() {
         this.fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -39,6 +46,13 @@ class BookmarkManager {
         this.saveButton = document.getElementById('save-button') as HTMLButtonElement;
         this.statusArea = document.getElementById('status-area') as HTMLDivElement;
         this.treeContainer = document.getElementById('bookmark-tree-container') as HTMLDivElement;
+        
+        // 統計情報要素の取得
+        this.totalCountElement = document.getElementById('total-count') as HTMLElement;
+        this.okCountElement = document.getElementById('ok-count') as HTMLElement;
+        this.notFoundCountElement = document.getElementById('not-found-count') as HTMLElement;
+        this.errorCountElement = document.getElementById('error-count') as HTMLElement;
+        this.selectedCountElement = document.getElementById('selected-count') as HTMLElement;
         
         this.initializeEventListeners();
     }
@@ -66,6 +80,7 @@ class BookmarkManager {
                 if (this.validateBookmarkData(data)) {
                     this.bookmarkData = data;
                     this.renderBookmarkTree();
+                    this.updateStats();
                     this.checkLinksButton.disabled = false;
                     this.showStatus('ブックマークファイルを読み込みました', 'success');
                 } else {
@@ -190,6 +205,8 @@ class BookmarkManager {
             const id = (checkbox as HTMLInputElement).dataset.bookmarkId;
             if (id) this.selectedBookmarks.add(id);
         });
+        
+        this.updateStats();
     }
 
     private showStatus(message: string, type: 'info' | 'error' | 'success' = 'info'): void {
@@ -261,6 +278,7 @@ class BookmarkManager {
         // エラーがある場合のみ再チェックボタンを有効化
         this.recheckButton.disabled = this.errorBookmarks.size === 0;
         this.handleCheckboxChange();
+        this.updateStats();
         this.showStatus('リンクチェックが完了しました', 'success');
     }
 
@@ -407,6 +425,7 @@ class BookmarkManager {
         // エラーがまだある場合のみ再チェックボタンを有効化
         this.recheckButton.disabled = this.errorBookmarks.size === 0;
         this.handleCheckboxChange();
+        this.updateStats();
         this.showStatus('再チェックが完了しました', 'success');
     }
 
@@ -454,6 +473,44 @@ class BookmarkManager {
         if (roots.bookmark_bar) removeFromNode(roots.bookmark_bar);
         if (roots.other) removeFromNode(roots.other);
         if (roots.synced) removeFromNode(roots.synced);
+    }
+
+    private updateStats(): void {
+        if (!this.bookmarkData) {
+            this.totalCountElement.textContent = '0';
+            this.okCountElement.textContent = '0';
+            this.notFoundCountElement.textContent = '0';
+            this.errorCountElement.textContent = '0';
+            this.selectedCountElement.textContent = '0';
+            return;
+        }
+
+        const allBookmarks = this.collectAllBookmarks(this.bookmarkData.roots);
+        const total = allBookmarks.length;
+        
+        let okCount = 0;
+        let notFoundCount = 0;
+        let errorCount = 0;
+        
+        allBookmarks.forEach(bookmark => {
+            const icon = this.treeContainer.querySelector(`[data-bookmark-id="${bookmark.id}"].status-icon`) as HTMLElement;
+            if (icon && icon.textContent) {
+                const status = icon.textContent;
+                if (status === '😊') {
+                    okCount++;
+                } else if (status === '💀') {
+                    notFoundCount++;
+                } else if (status !== '') {
+                    errorCount++;
+                }
+            }
+        });
+        
+        this.totalCountElement.textContent = total.toString();
+        this.okCountElement.textContent = okCount.toString();
+        this.notFoundCountElement.textContent = notFoundCount.toString();
+        this.errorCountElement.textContent = errorCount.toString();
+        this.selectedCountElement.textContent = this.selectedBookmarks.size.toString();
     }
 }
 

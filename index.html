@@ -10,12 +10,36 @@
     <div class="container">
         <header>
             <h1>Chrome ブックマーク整理ツール</h1>
-            <div class="controls">
-                <input type="file" id="file-input" style="display: none;">
-                <button id="open-file-button" class="btn btn-primary">ブックマークファイルを開く</button>
-                <button id="check-links-button" class="btn btn-secondary" disabled>確認する</button>
-                <button id="recheck-button" class="btn btn-warning" disabled>再チェック</button>
-                <button id="save-button" class="btn btn-success" disabled>保存する</button>
+            <div class="header-content">
+                <div class="controls">
+                    <input type="file" id="file-input" style="display: none;">
+                    <button id="open-file-button" class="btn btn-primary">ブックマークファイルを開く</button>
+                    <button id="check-links-button" class="btn btn-secondary" disabled>確認する</button>
+                    <button id="recheck-button" class="btn btn-warning" disabled>再チェック</button>
+                    <button id="save-button" class="btn btn-success" disabled>保存する</button>
+                </div>
+                <div class="stats" id="stats-display">
+                    <div class="stats-item">
+                        <span class="stats-label">総数:</span>
+                        <span class="stats-value" id="total-count">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span class="stats-label">😊:</span>
+                        <span class="stats-value" id="ok-count">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span class="stats-label">💀:</span>
+                        <span class="stats-value" id="not-found-count">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span class="stats-label">エラー:</span>
+                        <span class="stats-value" id="error-count">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span class="stats-label">選択:</span>
+                        <span class="stats-value" id="selected-count">0</span>
+                    </div>
+                </div>
             </div>
         </header>
 
