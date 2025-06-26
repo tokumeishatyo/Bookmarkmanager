@@ -30,6 +30,7 @@ class BookmarkManager {
     private selectedBookmarks: Set<string> = new Set();
     private errorBookmarks: Set<string> = new Set();
     private isRecheckMode: boolean = false;
+    private fileFormat: 'json' | 'html' = 'json'; // 読み込んだファイル形式を記憶
     
     // 統計情報用の要素
     private totalCountElement: HTMLElement;
@@ -75,16 +76,30 @@ class BookmarkManager {
         reader.onload = (e) => {
             try {
                 const content = e.target?.result as string;
-                const data = JSON.parse(content);
                 
-                if (this.validateBookmarkData(data)) {
-                    this.bookmarkData = data;
-                    this.renderBookmarkTree();
-                    this.updateStats();
-                    this.checkLinksButton.disabled = false;
-                    this.showStatus('ブックマークファイルを読み込みました', 'success');
+                // HTMLファイルの場合
+                if (file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm')) {
+                    this.fileFormat = 'html';
+                    this.parseHTMLBookmarks(content);
                 } else {
-                    this.showStatus('無効なブックマークファイルです。', 'error');
+                    // JSONファイルまたは拡張子なしファイル（Bookmarks）として試す
+                    try {
+                        const data = JSON.parse(content);
+                        if (this.validateBookmarkData(data)) {
+                            this.fileFormat = 'json';
+                            this.bookmarkData = data;
+                            this.renderBookmarkTree();
+                            this.updateStats();
+                            this.checkLinksButton.disabled = false;
+                            this.showStatus('ブックマークファイルを読み込みました', 'success');
+                        } else {
+                            this.showStatus('無効なブックマークファイルです。', 'error');
+                        }
+                    } catch (jsonError) {
+                        // JSONパースに失敗した場合、HTMLとして再試行
+                        this.fileFormat = 'html';
+                        this.parseHTMLBookmarks(content);
+                    }
                 }
             } catch (error) {
                 this.showStatus('ファイルの読み込みに失敗しました。', 'error');
@@ -99,6 +114,7 @@ class BookmarkManager {
                data.roots && 
                (data.roots.bookmark_bar || data.roots.other);
     }
+
 
     private renderBookmarkTree(): void {
         if (!this.bookmarkData) return;
@@ -435,21 +451,37 @@ class BookmarkManager {
         const newData = this.deepClone(this.bookmarkData);
         this.removeSelectedBookmarks(newData.roots);
         
-        const jsonString = JSON.stringify(newData, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
         const date = new Date();
         const dateString = date.getFullYear() +
                           String(date.getMonth() + 1).padStart(2, '0') +
                           String(date.getDate()).padStart(2, '0');
         
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Bookmarks_${dateString}.json`;
-        a.click();
+        if (this.fileFormat === 'html') {
+            // HTML形式で出力
+            const htmlContent = this.convertToHTML(newData.roots);
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Bookmarks_${dateString}.html`;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+        } else {
+            // JSON形式で出力
+            const jsonString = JSON.stringify(newData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Bookmarks_${dateString}`;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+        }
         
-        URL.revokeObjectURL(url);
         this.showStatus('ブックマークファイルを保存しました', 'success');
     }
 
@@ -511,6 +543,195 @@ class BookmarkManager {
         this.notFoundCountElement.textContent = notFoundCount.toString();
         this.errorCountElement.textContent = errorCount.toString();
         this.selectedCountElement.textContent = this.selectedBookmarks.size.toString();
+    }
+
+    private parseHTMLBookmarks(htmlContent: string): void {
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlContent, 'text/html');
+            
+            // Chrome形式のブックマークデータに変換
+            const bookmarkData: ChromeBookmarkRoot = {
+                roots: {
+                    bookmark_bar: {
+                        id: '1',
+                        name: 'ブックマークバー',
+                        type: 'folder',
+                        children: []
+                    },
+                    other: {
+                        id: '2',
+                        name: 'その他のブックマーク',
+                        type: 'folder',
+                        children: []
+                    }
+                },
+                version: 1
+            };
+            
+            let bookmarkId = 100; // IDカウンター
+            
+            // 再帰的にDL要素をパース
+            const parseDL = (dlElement: Element): ChromeBookmark[] => {
+                const result: ChromeBookmark[] = [];
+                let currentFolder: ChromeBookmark | null = null;
+                
+                // DLの直接の子要素を処理
+                for (let i = 0; i < dlElement.children.length; i++) {
+                    const child = dlElement.children[i];
+                    
+                    if (child.tagName === 'P') {
+                        // <p>タグはスキップ
+                        continue;
+                    } else if (child.tagName === 'DT') {
+                        // DTタグの中身を確認
+                        const h3 = child.querySelector('h3');
+                        const a = child.querySelector('a');
+                        
+                        if (h3) {
+                            // フォルダ
+                            currentFolder = {
+                                id: String(bookmarkId++),
+                                name: h3.textContent || 'フォルダ',
+                                type: 'folder',
+                                children: []
+                            };
+                            result.push(currentFolder);
+                            
+                            // 次の要素がDLかどうかチェック
+                            if (i + 1 < dlElement.children.length && dlElement.children[i + 1].tagName === 'DL') {
+                                // 次のDL要素を処理
+                                const nextDL = dlElement.children[i + 1];
+                                currentFolder.children = parseDL(nextDL);
+                                i++; // DL要素もスキップ
+                            }
+                        } else if (a) {
+                            // ブックマーク
+                            const bookmark: ChromeBookmark = {
+                                id: String(bookmarkId++),
+                                name: a.textContent || 'ブックマーク',
+                                type: 'url',
+                                url: a.getAttribute('href') || ''
+                            };
+                            result.push(bookmark);
+                        }
+                    }
+                }
+                
+                return result;
+            };
+            
+            
+            // body直下のDLから開始
+            const bodyDL = doc.querySelector('body > dl');
+            if (bodyDL) {
+                const allItems = parseDL(bodyDL);
+                
+                // トップレベルのフォルダを判別して振り分け
+                for (const item of allItems) {
+                    if (item.type === 'folder') {
+                        const folderName = item.name.toLowerCase();
+                        
+                        // ブックマークバーの識別
+                        if (folderName.includes('ブックマーク') && folderName.includes('バー') ||
+                            folderName.includes('bookmarks') && folderName.includes('bar') ||
+                            folderName === 'bookmarks bar') {
+                            // ブックマークバーの中身を移動
+                            if (item.children) {
+                                bookmarkData.roots.bookmark_bar.children = item.children;
+                            }
+                        }
+                        // その他のブックマークの識別
+                        else if (folderName.includes('その他') || 
+                                 folderName.includes('other') ||
+                                 folderName === 'other bookmarks') {
+                            // その他のブックマークの中身を移動
+                            if (item.children) {
+                                bookmarkData.roots.other.children = item.children;
+                            }
+                        }
+                        // それ以外はブックマークバーに追加
+                        else {
+                            bookmarkData.roots.bookmark_bar.children!.push(item);
+                        }
+                    } else {
+                        // トップレベルのブックマークはブックマークバーに追加
+                        bookmarkData.roots.bookmark_bar.children!.push(item);
+                    }
+                }
+            }
+            
+            // データを設定して表示
+            this.bookmarkData = bookmarkData;
+            this.renderBookmarkTree();
+            this.updateStats();
+            this.checkLinksButton.disabled = false;
+            this.showStatus('HTMLブックマークファイルを読み込みました', 'success');
+            
+        } catch (error) {
+            this.showStatus('HTMLファイルの解析に失敗しました。', 'error');
+        }
+    }
+
+    private convertToHTML(roots: ChromeBookmarkRoot['roots']): string {
+        const convertNode = (node: ChromeBookmark): string => {
+            if (node.type === 'folder') {
+                let html = `<DT><H3>${this.escapeHTML(node.name)}</H3>\n<DD><DL>\n`;
+                if (node.children) {
+                    for (const child of node.children) {
+                        html += convertNode(child);
+                    }
+                }
+                html += '</DL></DD>\n';
+                return html;
+            } else if (node.type === 'url') {
+                return `<DT><A HREF="${this.escapeHTML(node.url || '')}">${this.escapeHTML(node.name)}</A>\n`;
+            }
+            return '';
+        };
+        
+        let html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<!-- This is an automatically generated file.
+     It will be read and overwritten.
+     DO NOT EDIT! -->
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<TITLE>Bookmarks</TITLE>
+<H1>Bookmarks</H1>
+<DL>\n`;
+        
+        // ブックマークバー
+        if (roots.bookmark_bar && roots.bookmark_bar.children) {
+            html += '<DT><H3>ブックマークバー</H3>\n<DD><DL>\n';
+            for (const child of roots.bookmark_bar.children) {
+                html += convertNode(child);
+            }
+            html += '</DL></DD>\n';
+        }
+        
+        // その他のブックマーク
+        if (roots.other && roots.other.children) {
+            html += '<DT><H3>その他のブックマーク</H3>\n<DD><DL>\n';
+            for (const child of roots.other.children) {
+                html += convertNode(child);
+            }
+            html += '</DL></DD>\n';
+        }
+        
+        html += '</DL>\n';
+        return html;
+    }
+
+    private escapeHTML(str: string): string {
+        return str.replace(/[&<>"']/g, (match) => {
+            const escapeMap: { [key: string]: string } = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            };
+            return escapeMap[match];
+        });
     }
 }
 

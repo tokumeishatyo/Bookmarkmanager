@@ -5,3 +5,5 @@ dist/
 .env
 .vscode/
 *.tmp
+doc/Bookmarks
+doc/bookmarks_*.html
